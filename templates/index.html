@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Emparejador de Imágenes</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: #0f1117;
+        color: #e1e4e8;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        user-select: none;
+      }
+
+      /* ── Header ─────────────────────────── */
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 24px;
+        background: #161b22;
+        border-bottom: 1px solid #30363d;
+        flex-shrink: 0;
+      }
+      .header h1 {
+        font-size: 18px;
+        font-weight: 600;
+        color: #58a6ff;
+      }
+      .header h1 span {
+        color: #8b949e;
+        font-weight: 400;
+      }
+      .stats {
+        display: flex;
+        gap: 20px;
+        font-size: 13px;
+      }
+      .stat {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .stat-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+      .stat-dot.green {
+        background: #3fb950;
+      }
+      .stat-dot.blue {
+        background: #58a6ff;
+      }
+      .stat-dot.orange {
+        background: #d29922;
+      }
+      .stat-dot.red {
+        background: #f85149;
+      }
+
+      /* ── Progress bar ───────────────────── */
+      .progress-bar {
+        height: 3px;
+        background: #21262d;
+        flex-shrink: 0;
+      }
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #58a6ff, #3fb950);
+        transition: width 0.4s ease;
+      }
+
+      /* ── Image panels ───────────────────── */
+      .panels {
+        flex: 1;
+        display: flex;
+        gap: 2px;
+        padding: 8px;
+        min-height: 0;
+      }
+      .panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: #161b22;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #30363d;
+      }
+      .panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 14px;
+        background: #1c2128;
+        border-bottom: 1px solid #30363d;
+        font-size: 12px;
+        flex-shrink: 0;
+      }
+      .panel-label {
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .panel-label.frontal {
+        color: #58a6ff;
+      }
+      .panel-label.trasera {
+        color: #d2a8ff;
+      }
+      .panel-info {
+        color: #8b949e;
+      }
+      .panel-body {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px;
+        min-height: 0;
+        position: relative;
+      }
+      .panel-body img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        border-radius: 4px;
+      }
+      .no-image {
+        color: #484f58;
+        font-size: 14px;
+        text-align: center;
+      }
+
+      /* ── Actions ─────────────────────────── */
+      .actions {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 12px 24px;
+        background: #161b22;
+        border-top: 1px solid #30363d;
+        flex-shrink: 0;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 24px;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        background: #21262d;
+        color: #e1e4e8;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+      .btn:hover {
+        background: #30363d;
+      }
+      .btn:active {
+        transform: scale(0.97);
+      }
+
+      .btn-pair {
+        background: #238636;
+        border-color: #2ea043;
+        color: #fff;
+      }
+      .btn-pair:hover {
+        background: #2ea043;
+      }
+
+      .btn-skip {
+        background: #b62324;
+        border-color: #da3633;
+        color: #fff;
+      }
+      .btn-skip:hover {
+        background: #da3633;
+      }
+
+      .btn-next {
+        background: #1f6feb;
+        border-color: #388bfd;
+        color: #fff;
+      }
+      .btn-next:hover {
+        background: #388bfd;
+      }
+
+      .kbd {
+        display: inline-block;
+        padding: 1px 6px;
+        font-size: 11px;
+        font-family: monospace;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 3px;
+        color: #8b949e;
+      }
+
+      .btn-reset {
+        position: absolute;
+        right: 12px;
+        padding: 6px 12px;
+        font-size: 12px;
+        background: transparent;
+        border-color: #f8514933;
+        color: #f85149;
+      }
+      .btn-reset:hover {
+        background: #f8514922;
+      }
+      .btn-undo {
+        position: absolute;
+        left: 12px;
+        padding: 6px 12px;
+        font-size: 12px;
+        background: transparent;
+        border-color: #d2992233;
+        color: #d29922;
+      }
+      .btn-undo:hover {
+        background: #d2992222;
+      }
+      .btn-review {
+        position: absolute;
+        right: 100px;
+        padding: 6px 12px;
+        font-size: 12px;
+        background: transparent;
+        border-color: #58a6ff33;
+        color: #58a6ff;
+      }
+      .btn-review:hover {
+        background: #58a6ff22;
+      }
+      .btn-predict {
+        background: #ea4aaa;
+        border-color: #d13b96;
+        color: #fff;
+      }
+      .btn-predict:hover {
+        background: #d13b96;
+      }
+
+      /* ── Modal ───────────────────────────── */
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 100;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal-overlay.active {
+        display: flex;
+      }
+      .modal {
+        background: #1c2128;
+        border: 1px solid #30363d;
+        border-radius: 12px;
+        padding: 32px;
+        max-width: 480px;
+        text-align: center;
+      }
+      .modal h2 {
+        margin-bottom: 12px;
+        font-size: 18px;
+      }
+      .modal p {
+        color: #8b949e;
+        margin-bottom: 24px;
+        font-size: 14px;
+      }
+      .modal-buttons {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+      }
+
+      /* ── Toast ───────────────────────────── */
+      .toast {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%) translateY(-80px);
+        background: #238636;
+        color: #fff;
+        padding: 10px 24px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 200;
+        transition: transform 0.3s ease;
+        pointer-events: none;
+      }
+      .toast.show {
+        transform: translateX(-50%) translateY(0);
+      }
+      .toast.warning {
+        background: #d29922;
+        color: #1c2128;
+      }
+
+      /* ── Completed ──────────────────────── */
+      .completed-screen {
+        display: none;
+        flex: 1;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        text-align: center;
+      }
+      .completed-screen.active {
+        display: flex;
+      }
+      .completed-screen h2 {
+        font-size: 28px;
+        color: #3fb950;
+      }
+      .completed-screen p {
+        color: #8b949e;
+        font-size: 15px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Header -->
+    <div class="header">
+      <h1>🌸 Emparejador <span>Frontales ↔ Traseras</span></h1>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-dot green"></div>
+          Parejas: <strong id="st-pairs">0</strong>
+        </div>
+        <div class="stat">
+          <div class="stat-dot orange"></div>
+          Front. sin pareja: <strong id="st-unpaired">0</strong>
+        </div>
+        <div class="stat">
+          <div class="stat-dot red"></div>
+          Tras. sin pareja: <strong id="st-unpaired-tras">0</strong>
+        </div>
+        <div class="stat">
+          <div class="stat-dot blue"></div>
+          Pendientes: <strong id="st-pending">0</strong>
+        </div>
+      </div>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress" style="width: 0%"></div>
+    </div>
+
+    <!-- Panels -->
+    <div class="panels" id="panels">
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-label frontal">▎ Frontal</span>
+          <span class="panel-info" id="frontal-info">—</span>
+        </div>
+        <div class="panel-body">
+          <img id="img-frontal" src="" alt="Frontal" style="display: none" />
+          <div class="no-image" id="no-frontal">Pon imágenes en /frontales</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-label trasera">▎ Trasera</span>
+          <span class="panel-info" id="trasera-info">—</span>
+        </div>
+        <div class="panel-body">
+          <img id="img-trasera" src="" alt="Trasera" style="display: none" />
+          <div class="no-image" id="no-trasera">Pon imágenes en /traseras</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions" id="actions">
+      <button class="btn btn-undo" onclick="doUndo()">
+        ← Deshacer <kbd class="kbd">Z</kbd>
+      </button>
+      <button class="btn btn-next" id="btn-prev" onclick="doPrev()">
+        ← Anterior <kbd class="kbd">A</kbd>
+      </button>
+      <button class="btn btn-pair" id="btn-pair" onclick="doPair()">
+        ✓ Es Pareja <kbd class="kbd">Enter</kbd>
+      </button>
+      <button class="btn btn-next" id="btn-next" onclick="doNext()">
+        → Siguiente <kbd class="kbd">D</kbd>
+      </button>
+      <button class="btn btn-skip" id="btn-skip" onclick="doSkip()">
+        ✗ Frontal Sin Pareja <kbd class="kbd">S</kbd>
+      </button>
+      <button
+        class="btn btn-skip"
+        id="btn-skip-trasera"
+        onclick="doSkipTrasera()"
+        style="background: #7c3aed; border-color: #8b5cf6"
+      >
+        ✗ Trasera Sin Pareja <kbd class="kbd">W</kbd>
+      </button>
+      <button class="btn btn-review" onclick="doReview()">📋 Revisar</button>
+
+      <button class="btn btn-reset" onclick="confirmReset()">↺ Reset</button>
+    </div>
+
+    <!-- Completed screen -->
+    <div class="completed-screen" id="completed">
+      <h2>✅ Proceso completado</h2>
+      <p id="completed-msg"></p>
+      <button
+        class="btn btn-next"
+        onclick="doReview()"
+        style="margin-right: 12px"
+      >
+        📋 Revisar (mantener parejas)
+      </button>
+      <button class="btn" onclick="confirmReset()">↺ Reiniciar todo</button>
+    </div>
+
+    <!-- Cycle-complete modal -->
+    <div class="modal-overlay" id="modal-cycle">
+      <div class="modal">
+        <h2>⚠️ Ciclo completado</h2>
+        <p>
+          Has recorrido todas las traseras disponibles sin encontrar pareja para
+          esta frontal.
+        </p>
+        <div class="modal-buttons">
+          <button
+            class="btn btn-skip"
+            onclick="
+              doSkip();
+              closeModal();
+            "
+          >
+            Marcar sin pareja
+          </button>
+          <button class="btn" onclick="restartCycle()">Revisar de nuevo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reset confirm modal (step 1) -->
+    <div class="modal-overlay" id="modal-reset">
+      <div class="modal">
+        <h2>¿Reiniciar todo?</h2>
+        <p>Se borrarán todas las parejas guardadas y el progreso.</p>
+        <div class="modal-buttons">
+          <button class="btn btn-skip" onclick="showResetStep2()">
+            Sí, reiniciar
+          </button>
+          <button class="btn" onclick="closeResetModal()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reset confirm modal (step 2 - final) -->
+    <div class="modal-overlay" id="modal-reset-2">
+      <div class="modal">
+        <h2>⚠️ ¿Estás completamente seguro?</h2>
+        <p>
+          Esta acción <strong>no se puede deshacer</strong>. Se eliminarán todas
+          las carpetas de parejas.
+        </p>
+        <div class="modal-buttons">
+          <button
+            class="btn btn-skip"
+            id="btn-reset-final"
+            onclick="doReset()"
+            disabled
+          >
+            Confirmar (<span id="reset-countdown">3</span>s)
+          </button>
+          <button class="btn" onclick="closeResetModal2()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+      let busy = false;
+
+      // ── Fetch helpers ──────────────────────
+      async function api(endpoint, method = "GET") {
+        const res = await fetch("/api/" + endpoint, {
+          method,
+          headers: { "Content-Type": "application/json" },
+        });
+        return res.json();
+      }
+
+      // ── UI update ──────────────────────────
+      async function refresh() {
+        const s = await api("state");
+
+        if (s.completed) {
+          document.getElementById("panels").style.display = "none";
+          document.getElementById("actions").style.display = "none";
+          const c = document.getElementById("completed");
+          c.classList.add("active");
+          document.getElementById("completed-msg").textContent =
+            `${s.total_pairs} parejas creadas. ${s.unpaired.length} sin pareja.`;
+          document.getElementById("st-pairs").textContent = s.total_pairs;
+          document.getElementById("st-pending").textContent = 0;
+          document.getElementById("st-unpaired").textContent =
+            s.unpaired.length;
+          document.getElementById("progress").style.width = "100%";
+          return;
+        }
+
+        document.getElementById("completed").classList.remove("active");
+        document.getElementById("panels").style.display = "";
+        document.getElementById("actions").style.display = "";
+
+        // Frontal
+        const imgF = document.getElementById("img-frontal");
+        const noF = document.getElementById("no-frontal");
+        if (s.current_frontal) {
+          imgF.src = "/images/frontales/" + s.current_frontal;
+          imgF.style.display = "";
+          noF.style.display = "none";
+          document.getElementById("frontal-info").textContent =
+            `${s.frontal_idx + 1}/${s.total_frontales}  •  ${s.current_frontal}`;
+        }
+
+        // Trasera
+        const imgT = document.getElementById("img-trasera");
+        const noT = document.getElementById("no-trasera");
+        if (s.current_trasera && !s.cycle_complete) {
+          imgT.src = "/images/traseras/" + s.current_trasera;
+          imgT.style.display = "";
+          noT.style.display = "none";
+          document.getElementById("trasera-info").textContent =
+            `${s.trasera_idx + 1}/${s.total_traseras_available}  •  ${s.current_trasera}`;
+        } else {
+          imgT.style.display = "none";
+          noT.style.display = "";
+          noT.textContent = "No hay más traseras";
+          document.getElementById("trasera-info").textContent = "—";
+        }
+
+        // Stats
+        const processed = s.frontal_idx;
+        const pending = s.total_frontales - processed;
+        document.getElementById("st-pairs").textContent = s.total_pairs;
+        document.getElementById("st-unpaired").textContent = s.unpaired_count;
+        document.getElementById("st-unpaired-tras").textContent =
+          s.unpaired_traseras_count || 0;
+        document.getElementById("st-pending").textContent = pending;
+
+        const pct =
+          s.total_frontales > 0
+            ? Math.round((processed / s.total_frontales) * 100)
+            : 0;
+        document.getElementById("progress").style.width = pct + "%";
+
+        // Auto-show cycle modal
+        if (s.cycle_complete) {
+          document.getElementById("modal-cycle").classList.add("active");
+        }
+
+        // Button states
+        document.getElementById("btn-pair").disabled =
+          !s.current_trasera || s.cycle_complete;
+        document.getElementById("btn-prev").disabled = s.trasera_idx <= 0;
+        document.getElementById("btn-next").disabled =
+          !s.current_trasera || s.cycle_complete;
+        document.getElementById("btn-skip-trasera").disabled =
+          !s.current_trasera || s.cycle_complete;
+      }
+
+      // ── Actions ────────────────────────────
+
+      async function doPair() {
+        if (busy) return;
+        busy = true;
+        const res = await api("pair", "POST");
+        if (res.success) {
+          showToast(`✓ Pareja guardada en ${res.folder}/`);
+        }
+        busy = false;
+        refresh();
+      }
+
+      async function doNext() {
+        if (busy) return;
+        busy = true;
+        const res = await api("next", "POST");
+        if (res.cycle_complete) {
+          showToast("⚠ Fin del ciclo de traseras", true);
+        }
+        busy = false;
+        refresh();
+      }
+
+      async function doPrev() {
+        if (busy) return;
+        busy = true;
+        await api("prev", "POST");
+        busy = false;
+        refresh();
+      }
+
+      async function doSkip() {
+        if (busy) return;
+        busy = true;
+        await api("skip", "POST");
+        showToast("✗ Frontal marcada sin pareja", true);
+        busy = false;
+        refresh();
+      }
+
+      async function doSkipTrasera() {
+        if (busy) return;
+        busy = true;
+        await api("skip_trasera", "POST");
+        showToast("✗ Trasera marcada sin pareja", true);
+        busy = false;
+        refresh();
+      }
+
+      async function doUndo() {
+        if (busy) return;
+        busy = true;
+        const res = await api("undo", "POST");
+        if (res.success) {
+          const labels = {
+            pair: "pareja",
+            skip_frontal: "skip frontal",
+            skip_trasera: "skip trasera",
+          };
+          showToast("↩ Deshecho: " + (labels[res.undone] || res.undone), true);
+        } else {
+          showToast("⚠ Nada que deshacer", true);
+        }
+        busy = false;
+        refresh();
+      }
+
+      async function doReview() {
+        if (busy) return;
+        busy = true;
+        const res = await api("review", "POST");
+        if (res.success) {
+          showToast(
+            `📋 Revisión iniciada (${res.pairs_kept} parejas mantenidas)`,
+          );
+        }
+        busy = false;
+        refresh();
+      }
+
+      async function doReset() {
+        await api("reset", "POST");
+        closeResetModal2();
+        closeResetModal();
+        refresh();
+      }
+
+      async function restartCycle() {
+        // El backend ya resetea el índice al refrescar si cycle_complete
+        // Forzamos reset del trasera_idx vía next (vuelve a 0)
+        closeModal();
+        // Simplemente recargar estado — el backend mantiene el idx al último,
+        // así que hacemos una vuelta extra manualmente
+        await api("next", "POST");
+        refresh();
+      }
+
+      // ── Modal helpers ──────────────────────
+      function closeModal() {
+        document.getElementById("modal-cycle").classList.remove("active");
+      }
+      function confirmReset() {
+        document.getElementById("modal-reset").classList.add("active");
+      }
+      function closeResetModal() {
+        document.getElementById("modal-reset").classList.remove("active");
+      }
+
+      let resetTimer = null;
+      function showResetStep2() {
+        closeResetModal();
+        const btn = document.getElementById("btn-reset-final");
+        const span = document.getElementById("reset-countdown");
+        btn.disabled = true;
+        let count = 3;
+        span.textContent = count;
+        btn.textContent = "";
+        btn.innerHTML =
+          'Confirmar (<span id="reset-countdown">' + count + "</span>s)";
+        if (resetTimer) clearInterval(resetTimer);
+        resetTimer = setInterval(() => {
+          count--;
+          document.getElementById("reset-countdown").textContent = count;
+          if (count <= 0) {
+            clearInterval(resetTimer);
+            resetTimer = null;
+            btn.disabled = false;
+            btn.textContent = "🗑 Confirmar reinicio";
+          }
+        }, 1000);
+        document.getElementById("modal-reset-2").classList.add("active");
+      }
+      function closeResetModal2() {
+        document.getElementById("modal-reset-2").classList.remove("active");
+        if (resetTimer) {
+          clearInterval(resetTimer);
+          resetTimer = null;
+        }
+      }
+
+      // ── Toast ──────────────────────────────
+      function showToast(msg, warning = false) {
+        const t = document.getElementById("toast");
+        t.textContent = msg;
+        t.className = "toast show" + (warning ? " warning" : "");
+        setTimeout(() => (t.className = "toast"), 2000);
+      }
+
+      // ── Keyboard shortcuts ─────────────────
+      document.addEventListener("keydown", (e) => {
+        // Ignore if modal is open
+        if (document.getElementById("modal-cycle").classList.contains("active"))
+          return;
+        if (document.getElementById("modal-reset").classList.contains("active"))
+          return;
+
+        if (e.key === "Enter") {
+          e.preventDefault();
+          doPair();
+        } else if (e.key === "a" || e.key === "A" || e.key === "ArrowLeft") {
+          e.preventDefault();
+          doPrev();
+        } else if (e.key === "d" || e.key === "D" || e.key === "ArrowRight") {
+          e.preventDefault();
+          doNext();
+        } else if (e.key === "w" || e.key === "W") {
+          e.preventDefault();
+          doSkipTrasera();
+        } else if (e.key === "z" || e.key === "Z") {
+          e.preventDefault();
+          doUndo();
+        } else if (e.key === "s" || e.key === "S") {
+          e.preventDefault();
+          doSkip();
+        }
+      });
+
+      // ── Init ───────────────────────────────
+      refresh();
+    </script>
+  </body>
+</html>

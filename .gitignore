@@ -1,0 +1,37 @@
+# ── Datos de imágenes (pesados, no van en el repo) ──
+frontales/
+traseras/
+dataset_final/
+paired_images/
+
+# ── Estado de sesión (generado por la app) ──
+state.json
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ── Entornos virtuales ──
+venv/
+.venv/
+env/
+.env/
+
+# ── IDE / Editores ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Gemini / AI agents ──
+.gemini/
+.agents/
