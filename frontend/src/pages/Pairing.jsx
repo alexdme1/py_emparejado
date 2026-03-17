@@ -45,6 +45,13 @@ export default function Pairing() {
   const [renaming, setRenaming] = useState(false)
   const [renameResult, setRenameResult] = useState(null)
 
+  // ── Drive upload ──
+  const [credentialsPath, setCredentialsPath] = useState('')
+  const [folderId, setFolderId] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState(null)
+  const [uploadResult, setUploadResult] = useState(null)
+
   // Check if there's an active session on mount
   useEffect(() => {
     fetch('/api/pairing/session')
@@ -187,6 +194,62 @@ export default function Pairing() {
     setRenaming(false)
   }
 
+  // ── Drive upload ──
+  const doUploadDrive = async () => {
+    if (!credentialsPath) { showToast('Introduce la ruta a credentials.json', 'warning'); return }
+    if (!folderId) { showToast('Introduce el folder ID de destino en Drive', 'warning'); return }
+    if (!renameResult) { showToast('Primero renombra las parejas', 'warning'); return }
+
+    setUploading(true)
+    setUploadResult(null)
+    setUploadStatus({ phase: 'starting' })
+
+    const datasetDir = renameResult.output_dir ||
+      (outputDir ? outputDir.replace(/paired_images\/?$/, 'dataset_final') : '')
+
+    try {
+      const res = await apiPost('upload/drive', {
+        dataset_dir: datasetDir,
+        credentials_path: credentialsPath,
+        folder_id: folderId,
+      })
+
+      if (res.error) {
+        showToast(`\u274C ${res.error}`, 'error')
+        setUploading(false)
+        return
+      }
+
+      // Poll status
+      const poll = setInterval(async () => {
+        try {
+          const st = await fetch('/api/upload/drive/status').then(r => r.json())
+          setUploadStatus(st.status)
+          if (!st.running) {
+            clearInterval(poll)
+            setUploading(false)
+            if (st.error) {
+              showToast(`\u274C ${st.error}`, 'error')
+            } else if (st.result) {
+              setUploadResult(st.result)
+              if (st.result.success) {
+                showToast(`\u2705 ${st.result.uploaded} archivos subidos a Drive`)
+              } else {
+                showToast(`\u274C ${st.result.error}`, 'error')
+              }
+            }
+          }
+        } catch {
+          clearInterval(poll)
+          setUploading(false)
+        }
+      }, 1500)
+    } catch (e) {
+      showToast('\u274C Error de conexion', 'error')
+      setUploading(false)
+    }
+  }
+
   // ── Keyboard shortcuts ──
   useEffect(() => {
     if (setup) return
@@ -293,14 +356,63 @@ export default function Pairing() {
             </div>
           )}
 
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border-primary)', margin: '20px 0' }} />
+
+          <h3 style={{ fontSize: 16, marginBottom: 12 }}>Subir a Google Drive</h3>
+
+          <div className="input-group" style={{ marginBottom: 8, textAlign: 'left' }}>
+            <label style={{ fontSize: 12 }}>Ruta a credentials.json</label>
+            <input
+              type="text"
+              value={credentialsPath}
+              onChange={e => setCredentialsPath(e.target.value)}
+              placeholder="/ruta/a/credentials.json"
+              style={{ fontSize: 13 }}
+            />
+          </div>
+
+          <div className="input-group" style={{ marginBottom: 12, textAlign: 'left' }}>
+            <label style={{ fontSize: 12 }}>Folder ID de destino en Drive</label>
+            <input
+              type="text"
+              value={folderId}
+              onChange={e => setFolderId(e.target.value)}
+              placeholder="ej: 1A2B3C4D5E6F..."
+              style={{ fontSize: 13 }}
+            />
+          </div>
+
           <button
             className="btn btn-warning btn-lg"
-            disabled={!renameResult}
-            style={{ width: '100%', marginTop: 12, opacity: renameResult ? 1 : 0.4 }}
+            disabled={!renameResult || uploading}
+            style={{ width: '100%', opacity: renameResult ? 1 : 0.4 }}
             title={renameResult ? 'Subir a Google Drive' : 'Primero renombra las parejas'}
+            onClick={doUploadDrive}
           >
-            ☁️ Subir a Google Drive
+            {uploading ? (
+              <><span className="spinner" /> Subiendo...
+                {uploadStatus && uploadStatus.uploaded ? ` (${uploadStatus.uploaded}/${uploadStatus.total || '?'})` : ''}
+              </>
+            ) : (
+              '☁️ Subir a Google Drive'
+            )}
           </button>
+
+          {uploadResult && uploadResult.success && (
+            <div className="card" style={{ textAlign: 'left', fontSize: 13, marginTop: 8 }}>
+              <p>✅ <strong>{uploadResult.uploaded}</strong> archivos subidos</p>
+              <p>📈 Último índice en Drive: <strong>{uploadResult.last_index}</strong></p>
+              {uploadResult.errors && uploadResult.errors.length > 0 && (
+                <p style={{ color: 'var(--accent-red)' }}>⚠ {uploadResult.errors.length} errores</p>
+              )}
+            </div>
+          )}
+
+          {uploadResult && uploadResult.error && (
+            <div className="card" style={{ textAlign: 'left', fontSize: 13, marginTop: 8, borderColor: 'var(--accent-red)' }}>
+              <p style={{ color: 'var(--accent-red)' }}>❌ {uploadResult.error}</p>
+            </div>
+          )}
         </div>
 
         {/* Reset modals */}

@@ -214,6 +214,7 @@ def api_rename():
 
     if 'error' in result:
         return jsonify(result), 400
+    result['output_dir'] = output_dir
     return jsonify(result)
 
 
