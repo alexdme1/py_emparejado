@@ -7,6 +7,17 @@ paired_images/
 # ── Estado de sesión (generado por la app) ──
 state.json
 
+# ── Frontend deps (pesado, se regenera con npm install) ──
+frontend/node_modules/
+
+# ── NOTA: frontend/dist/ SÍ se sube al repo (pre-built)
+# ── para que no se necesite Node.js en producción ──
+
+# ── Credenciales (NUNCA subir) ──
+*.credentials.json
+credentials.json
+token.pickle
+
 # ── Python ──
 __pycache__/
 *.py[cod]
@@ -14,6 +25,7 @@ __pycache__/
 *.pyo
 *.egg-info/
 dist/
+!frontend/dist/
 build/
 *.egg
 
@@ -35,3 +47,6 @@ Thumbs.db
 # ── Gemini / AI agents ──
 .gemini/
 .agents/
+
+# ── YOLO model cache ──
+yolov8n.pt
