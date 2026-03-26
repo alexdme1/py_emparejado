@@ -454,7 +454,9 @@ export default function Testing() {
                                       {baldaData?.resumen_productos && Object.entries(baldaData.resumen_productos).map(([item, count]) => (
                                         <tr key={`${ticket}-${balda}-${item}`} style={{borderBottom: '1px solid var(--border-primary)'}}>
                                           <td style={{padding: '6px 32px', color: 'var(--text-secondary)'}}>↳ {item}</td>
-                                          <td style={{padding: '6px 16px', color: 'var(--accent-blue)', fontWeight: 700}}>{count}</td>
+                                          <td style={{padding: '6px 16px', color: 'var(--accent-blue)', fontWeight: 700}}>
+                                            {typeof count === 'object' && count !== null ? count.unidades_totales : count}
+                                          </td>
                                         </tr>
                                       ))}
                                     </React.Fragment>
