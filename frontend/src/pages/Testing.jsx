@@ -441,11 +441,18 @@ export default function Testing() {
                           </thead>
                           <tbody>
                             {pipelineResult?.json?.Items ? (
-                              Object.entries(pipelineResult.json.Items).map(([item, count]) => (
-                                <tr key={item} style={{borderBottom: '1px solid var(--border-primary)'}}>
-                                  <td style={{padding: '10px 16px', color: 'var(--text-primary)'}}>{item}</td>
-                                  <td style={{padding: '10px 16px', color: 'var(--accent-blue)', fontWeight: 700}}>{count}</td>
-                                </tr>
+                              Object.entries(pipelineResult.json.Items).map(([ticket, articulos]) => (
+                                <React.Fragment key={ticket}>
+                                  <tr style={{background: 'var(--bg-primary)'}}>
+                                    <td colSpan="2" style={{padding: '10px 16px', color: 'var(--text-primary)', fontWeight: 700}}>{ticket}</td>
+                                  </tr>
+                                  {Object.entries(articulos).map(([item, count]) => (
+                                    <tr key={`${ticket}-${item}`} style={{borderBottom: '1px solid var(--border-primary)'}}>
+                                      <td style={{padding: '6px 32px', color: 'var(--text-secondary)'}}>↳ {item}</td>
+                                      <td style={{padding: '6px 16px', color: 'var(--accent-blue)', fontWeight: 700}}>{count}</td>
+                                    </tr>
+                                  ))}
+                                </React.Fragment>
                               ))
                             ) : (
                               <tr>
