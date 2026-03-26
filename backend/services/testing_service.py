@@ -248,9 +248,44 @@ def run_pipeline_test(bytes_f: bytes, bytes_b: bytes,
         setattr(sys.modules['__main__'], 'CascadeCountingModel', CascadeCountingModel)
 
         dtd._TREE_PIPELINE = joblib.load(tree_pkl_path)
+        
+        # HACK: Si el modelo es de versión v2 (usa label_encoders en lugar de ColumnTransformer),
+        # inyectamos un objeto mock en "column_transformer" para engañar a decision_tree_lib.py
+        # y que funcione sin modificarlo.
+        if dtd._TREE_PIPELINE.get("model_version") == "v2" and dtd._TREE_PIPELINE.get("column_transformer") is None:
+            class MockTransformerCat:
+                def get_feature_names_out(self, cols):
+                    return cols
+            class MockColumnTransformer:
+                def __init__(self, le_dict, cat_cols, num_cols):
+                    self.le_dict = le_dict
+                    self.cat_cols = cat_cols
+                    self.num_cols = num_cols
+                    self.named_transformers_ = {"cat": MockTransformerCat()}
+                def transform(self, X):
+                    import pandas as pd
+                    X_df = X.copy()
+                    for c in self.cat_cols:
+                        if c in self.le_dict:
+                            le = self.le_dict[c]
+                            # Same safe mapping as training
+                            s = X_df[c].astype(str).fillna("__NA__")
+                            known = set(le.classes_)
+                            fb = "__NA__" if "__NA__" in known else le.classes_[0]
+                            X_df[c] = le.transform(s.apply(lambda x: x if x in known else fb))
+                    # Returns numpy array with cat_cols followed by num_cols
+                    # to match how ColumnTransformer returned it in v1
+                    return X_df[self.cat_cols + self.num_cols].values
+            
+            dtd._TREE_PIPELINE["column_transformer"] = MockColumnTransformer(
+                dtd._TREE_PIPELINE.get("label_encoders", {}),
+                dtd._TREE_PIPELINE["cat_cols"],
+                dtd._TREE_PIPELINE["num_cols"]
+            )
+            
         print(f"[testing_service] Árbol de decisión cargado: {tree_pkl_path}")
     resultado = dtd.procesar_pareja_imagenes(det_f, det_b)
-    conteo_final, ticket_mapping, bbox_labels = dtd.contar_articulos_tree(
+    conteo_final, ticket_mapping, bbox_labels = dtd.contar_articulos(
         det_f, det_b, resultado['asignacion_base'],
         img_frontal=img_f, img_trasera=img_b, clasificador=clasificador
     )

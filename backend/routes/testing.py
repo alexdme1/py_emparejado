@@ -122,4 +122,5 @@ def api_infer_pipeline():
         return jsonify(res)
     except Exception as e:
         import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
