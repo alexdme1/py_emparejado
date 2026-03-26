@@ -222,9 +222,31 @@ def run_pipeline_test(bytes_f: bytes, bytes_b: bytes,
 
     # 3. Decision Tree Pipeline Completo
     import decision_tree_lib as dtd
-    # Si se proporcionó un pkl específico, inyectarlo en el cache del tree pipeline
     if tree_pkl_path and os.path.exists(tree_pkl_path):
         import joblib
+        import sys
+        
+        # HACK: Inyectar la clase CascadeCountingModel en __main__ dado que el modelo
+        # fue serializado en un script principal y pickle lo buscará allí.
+        class CascadeCountingModel:
+            def __init__(self, model_s1, model_s2):
+                self.stage1 = model_s1
+                self.stage2 = model_s2
+            def predict(self, X):
+                y_bin = self.stage1.predict(X)
+                result = np.zeros(len(y_bin), dtype=int)
+                mask_pos = y_bin == 1
+                if mask_pos.any() and self.stage2 is not None:
+                    # Funciona tanto si X es array (X[mask_pos]) como si es DF
+                    X_copy = X.values if hasattr(X, 'values') else X
+                    X_pos = X_copy[mask_pos]
+                    result[mask_pos] = self.stage2.predict(X_pos)
+                return result
+            def predict_proba(self, X):
+                return self.stage1.predict_proba(X)
+
+        setattr(sys.modules['__main__'], 'CascadeCountingModel', CascadeCountingModel)
+
         dtd._TREE_PIPELINE = joblib.load(tree_pkl_path)
         print(f"[testing_service] Árbol de decisión cargado: {tree_pkl_path}")
     resultado = dtd.procesar_pareja_imagenes(det_f, det_b)
