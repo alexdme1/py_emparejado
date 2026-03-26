@@ -415,16 +415,16 @@ export default function Testing() {
                       🔍 Estado 1: Detección Pura (Mask R-CNN)
                     </h3>
                     <div style={{display: 'flex', gap: 16, marginBottom: 24}}>
-                      <img src={`data:image/png;base64,${pipelineResult?.images?.f_raw || ''}`} style={s.imgPipe} alt="Front Raw"/>
-                      <img src={`data:image/png;base64,${pipelineResult?.images?.b_raw || ''}`} style={s.imgPipe} alt="Back Raw"/>
+                      <img src={`data:image/jpeg;base64,${pipelineResult?.images?.f_raw || ''}`} style={s.imgPipe} alt="Front Raw"/>
+                      <img src={`data:image/jpeg;base64,${pipelineResult?.images?.b_raw || ''}`} style={s.imgPipe} alt="Back Raw"/>
                     </div>
 
                     <h3 style={{fontSize: 16, fontWeight: 700, marginBottom: 12, borderBottom: '1px solid var(--border-primary)', paddingBottom: 8}}>
                       🌳 Estado 2: Filtrado y Conteo (Árbol de Decisión)
                     </h3>
                     <div style={{display: 'flex', gap: 16, marginBottom: 24}}>
-                      <img src={`data:image/png;base64,${pipelineResult?.images?.f_tree || ''}`} style={s.imgPipe} alt="Front Tree"/>
-                      <img src={`data:image/png;base64,${pipelineResult?.images?.b_tree || ''}`} style={s.imgPipe} alt="Back Tree"/>
+                      <img src={`data:image/jpeg;base64,${pipelineResult?.images?.f_tree || ''}`} style={s.imgPipe} alt="Front Tree"/>
+                      <img src={`data:image/jpeg;base64,${pipelineResult?.images?.b_tree || ''}`} style={s.imgPipe} alt="Back Tree"/>
                     </div>
 
                     <h3 style={{fontSize: 16, fontWeight: 700, marginBottom: 12, borderBottom: '1px solid var(--border-primary)', paddingBottom: 8}}>

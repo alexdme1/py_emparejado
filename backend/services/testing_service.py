@@ -34,10 +34,19 @@ TREE_BASE = os.path.join(PROYECTO_H_DIR, "models", "tree_conteo")
 COCO_JSON = os.path.join(PROYECTO_H_DIR, "data", "coco_unified", "annotations", "test.json")
 
 # Helpers
-def _bgr_to_base64_png(img_bgr) -> str:
+def _bgr_to_base64_jpg(img_bgr) -> str:
     if img_bgr is None:
         return ""
-    success, encoded = cv2.imencode('.png', img_bgr)
+    
+    # Redimensionar si es muy grande para evitar crasheos de memoria en el navegador (pantalla negra)
+    max_dim = 600
+    h, w = img_bgr.shape[:2]
+    if max(h, w) > max_dim:
+        scale = max_dim / max(h, w)
+        img_bgr = cv2.resize(img_bgr, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+
+    # Comprimir a JPEG al 80% (PNG pesa muchísimo en base64 y colapsa el DOM de React)
+    success, encoded = cv2.imencode('.jpg', img_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
     if not success:
         return ""
     return base64.b64encode(encoded).decode('ascii')
@@ -304,9 +313,9 @@ def run_pipeline_test(bytes_f: bytes, bytes_b: bytes,
     return {
         "json": {"Items": conteo_final},
         "images": {
-            "f_raw": _bgr_to_base64_png(vis_f_raw),
-            "b_raw": _bgr_to_base64_png(vis_b_raw),
-            "f_tree": _bgr_to_base64_png(vis_f_tree),
-            "b_tree": _bgr_to_base64_png(vis_b_tree),
+            "f_raw": _bgr_to_base64_jpg(vis_f_raw),
+            "b_raw": _bgr_to_base64_jpg(vis_b_raw),
+            "f_tree": _bgr_to_base64_jpg(vis_f_tree),
+            "b_tree": _bgr_to_base64_jpg(vis_b_tree),
         }
     }
