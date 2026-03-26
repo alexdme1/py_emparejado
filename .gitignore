@@ -7,6 +7,9 @@ paired_images/
 # ── Estado de sesión (generado por la app) ──
 state.json
 
+# ── Datos de etiquetado (CSVs pesados, específicos por máquina) ──
+data/arbol_conteo/
+
 # ── Frontend deps (pesado, se regenera con npm install) ──
 frontend/node_modules/
 

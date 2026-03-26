@@ -171,6 +171,58 @@ export default function Landing() {
             de personas con YOLOv8n.
           </p>
         </div>
+
+        {/* Etiquetar */}
+        <div
+          id="card-labeling"
+          style={styles.card}
+          className="card"
+          onClick={() => navigate('/labeling')}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = 'var(--accent-green)'
+            e.currentTarget.style.transform = 'translateY(-4px)'
+            e.currentTarget.style.boxShadow = '0 0 40px rgba(52, 211, 153, 0.12)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border-primary)'
+            e.currentTarget.style.transform = 'translateY(0)'
+            e.currentTarget.style.boxShadow = 'none'
+          }}
+        >
+          <div style={{ ...styles.cardGlow, background: 'linear-gradient(135deg, #34d399, #a78bfa)' }} />
+          <span style={styles.cardIcon}>🌳</span>
+          <h2 style={styles.cardTitle}>Etiquetar</h2>
+          <p style={styles.cardDesc}>
+            Etiqueta unidades por detección en pares de imágenes.
+            Cuenta flores y plantas para el árbol de decisión.
+          </p>
+        </div>
+
+        {/* Testing */}
+        <div
+          id="card-testing"
+          style={styles.card}
+          className="card"
+          onClick={() => navigate('/testing')}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = 'var(--accent-purple)'
+            e.currentTarget.style.transform = 'translateY(-4px)'
+            e.currentTarget.style.boxShadow = '0 0 40px rgba(167, 139, 250, 0.12)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border-primary)'
+            e.currentTarget.style.transform = 'translateY(0)'
+            e.currentTarget.style.boxShadow = 'none'
+          }}
+        >
+          <div style={{ ...styles.cardGlow, background: 'linear-gradient(135deg, #a78bfa, #f472b6)' }} />
+          <span style={styles.cardIcon}>🧪</span>
+          <h2 style={styles.cardTitle}>Test Modelos</h2>
+          <p style={styles.cardDesc}>
+            Prueba Mask R-CNN, ConvNeXt y el Pipeline Completo
+            con cualquier imagen externa al dataset.
+          </p>
+        </div>
       </div>
 
       <footer style={styles.footer}>

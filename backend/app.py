@@ -19,12 +19,16 @@ def create_app():
     from backend.routes.folders import folders_bp
     from backend.routes.upload import upload_bp
     from backend.routes.video_extraction import video_bp
+    from backend.routes.labeling import labeling_bp
+    from backend.routes.testing import testing_bp
 
     app.register_blueprint(pairing_bp)
     app.register_blueprint(cropping_bp)
     app.register_blueprint(folders_bp)
     app.register_blueprint(upload_bp)
     app.register_blueprint(video_bp)
+    app.register_blueprint(labeling_bp)
+    app.register_blueprint(testing_bp)
 
     # ── Servir React SPA ──
     @app.route('/', defaults={'path': ''})
