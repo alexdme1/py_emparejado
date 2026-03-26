@@ -113,6 +113,8 @@ def api_infer_pipeline():
         return jsonify({"error": "Missing model parameters"}), 400
 
     try:
+        print(f"[pipeline/infer] mrcnn={mrcnn_path}, cnx={cnx_path}, cnx_run={cnx_run_dir}, "
+              f"thresh={threshold}, nms={nms_thresh}, tree={request.form.get('tree_path')}")
         res = run_pipeline_test(file_f.read(), file_b.read(), 
                                 mrcnn_path, threshold, nms_thresh,
                                 cnx_path, cnx_run_dir,

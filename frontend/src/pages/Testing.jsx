@@ -122,6 +122,7 @@ export default function Testing() {
           setSelMrcnnCkpt('')
         }
       })
+      .catch(e => console.error('Error loading MRCNN checkpoints:', e))
   }, [selMrcnnRun])
 
   // Load ConvNeXt Checkpoints when Run changes
@@ -139,6 +140,7 @@ export default function Testing() {
           setSelCnxCkpt('')
         }
       })
+      .catch(e => console.error('Error loading CNX checkpoints:', e))
   }, [selCnxRun])
 
   // Ejecutar Mask R-CNN
@@ -193,6 +195,7 @@ export default function Testing() {
     }
     setLoading(true)
     setPipelineResult(null)
+    console.log('[Pipeline] Starting with:', { selMrcnnCkpt, selCnxCkpt, selCnxRun, selTree })
     
     try {
       const fd = new FormData()
@@ -207,6 +210,7 @@ export default function Testing() {
 
       const res = await fetch('/api/testing/pipeline/infer', { method: 'POST', body: fd })
       const data = await res.json()
+      console.log('[Pipeline] Response:', data)
       if (data.error) showToast('Error', data.error, 'error')
       else setPipelineResult(data)
     } catch (e) {

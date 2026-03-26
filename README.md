@@ -4,6 +4,8 @@ Herramienta web local para procesamiento de imágenes con tres módulos:
 
 - **✂️ Cropear** — Recorte automático de imágenes desde exports COCO de Roboflow + subida automática.
 - **🔗 Emparejar** — Emparejado visual de imágenes frontales/traseras con renombrado y subida a Google Drive.
+- **🏷️ Etiquetar** — Verificación manual y conteo real de unidades para entrenar el Árbol de Decisión.
+- **🧪 Testing** — Prueba integral de los modelos (Mask R-CNN, ConvNeXt, Árbol) con la tubería completa.
 - **📹 Extraer de Vídeo** — Extrae capturas de vídeos de cámaras de seguridad usando YOLOv8n para detección de personas.
 
 ---
@@ -88,6 +90,17 @@ python run.py
    - `Z` — Deshacer
 3. Al terminar: **Renombrar Parejas** (formato NF/NB)
 4. **Subir a Google Drive** (numeración continua)
+
+### 🏷️ Etiquetado (Árbol de Decisión)
+1. Carga las inferencias en `data/arbol_conteo/detections_raw.csv`
+2. En la pestaña de Etiquetado, visualizarás las bboxes sobre las imágenes (frontales y traseras)
+3. Haz clic sobre cada caja detectada o botón para sumar unidades (+1)
+4. El proceso guarda tus respuestas y puede retomarse luego en `detections_labels.csv`
+
+### 🧪 Testing
+1. Selecciona las rutas al archivo del modelo Mask R-CNN y clasificador ConvNeXt.
+2. Arranca el Pipeline Completo proporcionando una imagen frontal y otra trasera.
+3. El frontend dibujará los bounding boxes y el conteo del ticket resultante del Árbol de Decisión.
 
 ### 📹 Extracción de Vídeo
 1. Selecciona un vídeo `.mp4` de cámara de seguridad
