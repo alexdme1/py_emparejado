@@ -2,11 +2,19 @@
 labeling_service.py
 Gestión portable de CSVs para el etiquetado del árbol de decisión.
 Adaptado de decision_tree_lib.py (solo la parte de gestión de datos).
+
+v2: Caché en memoria + escritura atómica + backup automático.
 """
 
 import os
+import shutil
+import tempfile
+import logging
+from typing import Optional
 import pandas as pd
 from backend.config import PROJECT_ROOT, IMAGE_EXTENSIONS
+
+logger = logging.getLogger(__name__)
 
 # ── Rutas de CSVs ──
 DATA_DIR   = os.path.join(PROJECT_ROOT, "data", "arbol_conteo")
@@ -18,29 +26,88 @@ KEY_COLS   = ["image_pair_id", "detection_id"]
 # ── Ruta de imágenes ──
 DATASET_DIR = os.path.join(PROJECT_ROOT, "dataset_final")
 
+# ── Caché en memoria ──
+_labels_cache: Optional[pd.DataFrame] = None
+_raw_cache: Optional[pd.DataFrame] = None
+
 
 # ═══════════════════════════════════════════════════════════
-# GESTIÓN DE CSVs
+# GESTIÓN DE CSVs — con caché y escritura atómica
 # ═══════════════════════════════════════════════════════════
 
 def load_raw() -> pd.DataFrame:
-    """Carga detections_raw.csv. Devuelve DataFrame vacío si no existe o está vacío."""
+    """Carga detections_raw.csv con caché en memoria."""
+    global _raw_cache
+    if _raw_cache is not None:
+        return _raw_cache
     if os.path.exists(RAW_CSV) and os.path.getsize(RAW_CSV) > 0:
-        return pd.read_csv(RAW_CSV)
+        _raw_cache = pd.read_csv(RAW_CSV)
+        return _raw_cache
     return pd.DataFrame()
 
 
 def load_labels() -> pd.DataFrame:
-    """Carga detections_labels.csv. Si no existe o está vacío devuelve DataFrame vacío."""
+    """Carga detections_labels.csv con caché en memoria."""
+    global _labels_cache
+    if _labels_cache is not None:
+        return _labels_cache
     if os.path.exists(LABELS_CSV) and os.path.getsize(LABELS_CSV) > 0:
-        return pd.read_csv(LABELS_CSV)
-    return pd.DataFrame(columns=KEY_COLS + ["unidades_label_d"])
+        try:
+            _labels_cache = pd.read_csv(LABELS_CSV)
+            return _labels_cache
+        except Exception as e:
+            logger.error(f"Error leyendo {LABELS_CSV}: {e}")
+            # Intentar restaurar desde backup
+            bak = LABELS_CSV + ".bak"
+            if os.path.exists(bak):
+                logger.warning(f"Restaurando desde backup: {bak}")
+                try:
+                    _labels_cache = pd.read_csv(bak)
+                    return _labels_cache
+                except Exception as e2:
+                    logger.error(f"Backup también corrupto: {e2}")
+    _labels_cache = pd.DataFrame(columns=KEY_COLS + ["unidades_label_d"])
+    return _labels_cache
 
 
 def save_labels(df_labels: pd.DataFrame) -> None:
-    """Guarda etiquetas a detections_labels.csv."""
+    """
+    Guarda etiquetas a detections_labels.csv de forma atómica.
+    1. Escribe a archivo temporal
+    2. Rota el archivo actual como .bak
+    3. Mueve el temporal al destino final (atómico)
+    """
+    global _labels_cache
     os.makedirs(DATA_DIR, exist_ok=True)
-    df_labels.to_csv(LABELS_CSV, index=False)
+
+    try:
+        # Escribir a temporal en el mismo directorio (mismo filesystem → rename atómico)
+        fd, tmp_path = tempfile.mkstemp(suffix=".csv", dir=DATA_DIR)
+        try:
+            with os.fdopen(fd, 'w', newline='') as f:
+                df_labels.to_csv(f, index=False)
+        except Exception:
+            os.unlink(tmp_path)
+            raise
+
+        # Backup del archivo actual
+        if os.path.exists(LABELS_CSV):
+            bak = LABELS_CSV + ".bak"
+            try:
+                shutil.copy2(LABELS_CSV, bak)
+            except Exception as e:
+                logger.warning(f"No se pudo crear backup: {e}")
+
+        # Mover atómicamente (os.replace es atómico en todos los OS)
+        os.replace(tmp_path, LABELS_CSV)
+
+        # Actualizar caché
+        _labels_cache = df_labels.copy()
+        logger.info(f"Etiquetas guardadas: {len(df_labels)} filas")
+
+    except Exception as e:
+        logger.error(f"Error guardando etiquetas: {e}")
+        raise
 
 
 def merge_raw_labels() -> pd.DataFrame:
@@ -135,6 +202,7 @@ def save_pair_labels(pair_id: str, counts: dict) -> None:
     """
     Guarda conteos de un par: counts = {detection_id: count}
     Reemplaza las filas existentes de este par.
+    Usa caché en memoria para evitar re-leer el CSV.
     """
     rows = []
     for det_id, count in counts.items():

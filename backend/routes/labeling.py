@@ -5,13 +5,15 @@ Blueprint: /api/labeling/
 
 import io
 import cv2
-import numpy as np
+import logging
 from flask import Blueprint, jsonify, request, send_file
 from backend.services.labeling_service import (
     get_pair_ids, get_pair_detections, get_pair_labels,
     save_pair_labels, get_summary_stats, get_pair_summary,
     find_pair_images, get_labeled_pair_ids, load_raw, get_resume_index,
 )
+
+logger = logging.getLogger(__name__)
 
 labeling_bp = Blueprint('labeling', __name__, url_prefix='/api/labeling')
 
@@ -68,22 +70,26 @@ def api_pair(pair_id):
 @labeling_bp.route('/pair/<pair_id>/labels', methods=['POST'])
 def api_save_labels(pair_id):
     """Guardar conteos: body = {"counts": {detection_id: count}}"""
-    data = request.get_json()
-    counts = data.get("counts", {})
+    try:
+        data = request.get_json()
+        counts = data.get("counts", {})
 
-    # Convertir claves a int
-    counts_int = {int(k): int(v) for k, v in counts.items()}
+        # Convertir claves a int
+        counts_int = {int(k): int(v) for k, v in counts.items()}
 
-    save_pair_labels(pair_id, counts_int)
-    return jsonify({"success": True})
+        save_pair_labels(pair_id, counts_int)
+        return jsonify({"success": True, "saved": len(counts_int)})
+    except Exception as e:
+        logger.error(f"Error guardando etiquetas para par {pair_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @labeling_bp.route('/pair/<pair_id>/image/<vista>')
 def api_pair_image(pair_id, vista):
     """
-    Imagen F/B con bboxes dibujadas.
+    Imagen F/B con bboxes dibujadas (sin badges de conteo).
+    Los badges se renderizan en el frontend con CSS overlays.
     vista: 'frontal' o 'trasera'
-    Query params: counts (JSON) para mostrar badges de conteo
     """
     images = find_pair_images(pair_id)
     img_path = images.get(vista)
@@ -95,24 +101,8 @@ def api_pair_image(pair_id, vista):
     if img is None:
         return jsonify({"error": "No se pudo leer la imagen"}), 500
 
-    # Nota: NO flipear la imagen trasera. Las coordenadas raw_bbox son
-    # nativas de la imagen original sin transformar.
-
-    # Dibujar bboxes
+    # Dibujar bboxes (sin badges de conteo — esos van en el frontend)
     detections = get_pair_detections(pair_id)
-    labels = get_pair_labels(pair_id)
-
-    # Parsear counts del query param si se proporcionan
-    counts_param = request.args.get("counts")
-    if counts_param:
-        import json
-        try:
-            counts = {int(k): int(v) for k, v in json.loads(counts_param).items()}
-        except Exception:
-            counts = labels
-    else:
-        counts = labels
-
     vista_code = "F" if vista == "frontal" else "B"
 
     ALPHA = 0.4  # 40% opacidad del fondo → 60% transparencia
@@ -128,7 +118,6 @@ def api_pair_image(pair_id, vista):
         x2 = int(det.get("raw_bbox_x2", det["d_bbox_x2"]))
         y2 = int(det.get("raw_bbox_y2", det["d_bbox_y2"]))
         did = det["detection_id"]
-        n_units = counts.get(did, 0)
 
         # Bbox (siempre opaco, es solo el borde)
         cv2.rectangle(img, (x1, y1), (x2, y2), color, 3)
@@ -151,26 +140,12 @@ def api_pair_image(pair_id, vista):
         cv2.putText(img, label, (cx - tw // 2, cy + th // 2),
                     cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), thickness)
 
-        # Badge con conteo — fondo semitransparente
-        if n_units > 0:
-            badge = f"x{n_units}"
-            (bw, bh), _ = cv2.getTextSize(badge, cv2.FONT_HERSHEY_SIMPLEX, 0.9, 2)
-            bx1, by1 = x2 - bw - 10, y1
-            bx2, by2 = x2, y1 + bh + 10
-            bx1, by1 = max(0, bx1), max(0, by1)
-            bx2, by2 = min(img.shape[1], bx2), min(img.shape[0], by2)
-            overlay_b = img[by1:by2, bx1:bx2].copy()
-            cv2.rectangle(img, (bx1, by1), (bx2, by2), (0, 0, 255), -1)
-            img[by1:by2, bx1:bx2] = cv2.addWeighted(overlay_b, 1 - ALPHA, img[by1:by2, bx1:bx2], ALPHA, 0)
-            cv2.putText(img, badge, (bx1 + 5, by1 + bh + 5),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
-
-    # Encode a PNG y devolver
-    _, buffer = cv2.imencode('.png', img)
+    # Encode a JPEG (más ligero que PNG, menos carga para PCs lentos)
+    _, buffer = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
     return send_file(
         io.BytesIO(buffer.tobytes()),
-        mimetype='image/png',
-        download_name=f'{pair_id}_{vista}.png'
+        mimetype='image/jpeg',
+        download_name=f'{pair_id}_{vista}.jpg'
     )
 
 

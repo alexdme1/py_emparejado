@@ -132,7 +132,7 @@ def run_maskrcnn_test(image_bytes: bytes, model_path: str, threshold: float, nms
     res_bgr = out.get_image()[:, :, ::-1]
 
     # Devolvemos base64 al frontend
-    return _bgr_to_base64_png(res_bgr)
+    return _bgr_to_base64_jpg(res_bgr)
 
 
 def run_convnext_test(image_bytes: bytes, model_path: str, run_dir: str):

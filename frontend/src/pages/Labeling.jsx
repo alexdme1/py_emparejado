@@ -9,13 +9,14 @@ const api = async (endpoint, method = 'GET', body = null) => {
   return res.json()
 }
 
-// ── Clickable image panel with bbox overlays ──
-function ClickableImagePanel({ pairId, vista, vistaCode, label, accentColor, detections, counts, imgVersion, onClickDetection }) {
+// ── Clickable image panel with bbox overlays + count badges (CSS only) ──
+function ClickableImagePanel({ pairId, vista, vistaCode, label, accentColor, detections, counts, onClickDetection }) {
   const containerRef = useRef(null)
   const imgRef = useRef(null)
   const [imgRect, setImgRect] = useState(null)
 
-  const src = `/api/labeling/pair/${pairId}/image/${vista}?counts=${encodeURIComponent(JSON.stringify(counts))}&v=${imgVersion}`
+  // Imagen estática: se carga UNA vez por par, sin parámetro de versión ni counts
+  const src = `/api/labeling/pair/${pairId}/image/${vista}`
 
   const vistaDetections = detections.filter(d => d.d_vista === vistaCode)
 
@@ -55,7 +56,7 @@ function ClickableImagePanel({ pairId, vista, vistaCode, label, accentColor, det
           onLoad={updateRect}
           onError={(e) => { e.target.style.display = 'none' }}
         />
-        {/* Clickable bbox overlays */}
+        {/* Clickable bbox overlays + count badges (CSS only, no server re-renders) */}
         {imgRect && imgRect.w > 0 && vistaDetections.map(det => {
           const scX = imgRect.w / imgRect.natW
           const scY = imgRect.h / imgRect.natH
@@ -63,6 +64,7 @@ function ClickableImagePanel({ pairId, vista, vistaCode, label, accentColor, det
           const by = imgRect.y + det.raw_bbox_y1 * scY
           const bw = (det.raw_bbox_x2 - det.raw_bbox_x1) * scX
           const bh = (det.raw_bbox_y2 - det.raw_bbox_y1) * scY
+          const n = counts[det.detection_id] || 0
           return (
             <div
               key={det.detection_id}
@@ -79,7 +81,24 @@ function ClickableImagePanel({ pairId, vista, vistaCode, label, accentColor, det
               }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)' }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent' }}
-            />
+            >
+              {/* Count badge — rendered in CSS, not from server */}
+              {n > 0 && (
+                <div style={{
+                  position: 'absolute', top: 0, right: 0,
+                  background: 'rgba(220, 38, 38, 0.85)',
+                  color: '#fff', fontWeight: 700,
+                  fontSize: Math.max(10, Math.min(16, bw / 5)),
+                  padding: '1px 5px',
+                  borderRadius: '0 3px 0 6px',
+                  lineHeight: 1.4,
+                  pointerEvents: 'none',
+                  minWidth: 20, textAlign: 'center',
+                }}>
+                  ×{n}
+                </div>
+              )}
+            </div>
           )
         })}
       </div>
@@ -111,7 +130,8 @@ export default function Labeling() {
   const [loading, setLoading] = useState(true)
   const [totalPairs, setTotalPairs] = useState(0)
   const [labeledCount, setLabeledCount] = useState(0)
-  const [imgVersion, setImgVersion] = useState(0)
+  const [dirty, setDirty] = useState(false)  // cambios sin guardar
+  const [saving, setSaving] = useState(false)
 
   const countsRef = useRef(counts)
   countsRef.current = counts
@@ -121,6 +141,9 @@ export default function Labeling() {
 
   const currentIdxRef = useRef(currentIdx)
   currentIdxRef.current = currentIdx
+
+  const dirtyRef = useRef(dirty)
+  dirtyRef.current = dirty
 
   // ── Load pairs list + auto-resume ──
   useEffect(() => {
@@ -149,7 +172,7 @@ export default function Labeling() {
       setDetections(data.detections || [])
       setCounts(data.labels || {})
       setUndoStack([])
-      setImgVersion(v => v + 1)
+      setDirty(false)
     })
   }, [currentIdx, pairs])
 
@@ -157,18 +180,60 @@ export default function Labeling() {
   const saveCurrentLabels = useCallback(async () => {
     const p = pairsRef.current
     const idx = currentIdxRef.current
-    if (p.length === 0) return
+    if (p.length === 0) return true
     const pairId = p[idx]?.id
-    if (!pairId) return
+    if (!pairId) return true
     const c = countsRef.current
-    if (Object.keys(c).length > 0) {
-      await api(`pair/${pairId}/labels`, 'POST', { counts: c })
+    if (Object.keys(c).length === 0) return true
+
+    setSaving(true)
+    try {
+      const res = await api(`pair/${pairId}/labels`, 'POST', { counts: c })
+      if (res.success) {
+        setDirty(false)
+        return true
+      } else {
+        showToast('❌ Error al guardar', res.error || 'Error desconocido', 'error')
+        return false
+      }
+    } catch (e) {
+      showToast('❌ Error de red', String(e), 'error')
+      return false
+    } finally {
+      setSaving(false)
     }
   }, [])
 
+  // ── Explicit save (button or S key) ──
+  const explicitSave = useCallback(async () => {
+    if (!dirtyRef.current) {
+      showToast('ℹ️ Sin cambios', 'No hay cambios pendientes', 'info')
+      return
+    }
+    const ok = await saveCurrentLabels()
+    if (ok) {
+      showToast('✅ Guardado', `Par ${pairsRef.current[currentIdxRef.current]?.id} guardado correctamente`, 'success')
+    }
+  }, [saveCurrentLabels])
+
+  // ── Auto-save every 30s ──
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (dirtyRef.current) {
+        saveCurrentLabels()
+      }
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [saveCurrentLabels])
+
   // ── Navigate ──
   const navigatePair = useCallback(async (newIdx) => {
-    await saveCurrentLabels()
+    if (dirtyRef.current) {
+      const ok = await saveCurrentLabels()
+      if (ok) {
+        showToast('✅ Guardado', `Par ${pairsRef.current[currentIdxRef.current]?.id} guardado`, 'success')
+      }
+    }
     setCurrentIdx(newIdx)
     setUndoStack([])
 
@@ -185,9 +250,9 @@ export default function Labeling() {
     setCounts(prev => {
       const old = prev[detId] || 0
       setUndoStack(stack => [...stack, { detId, oldVal: old }])
+      setDirty(true)
       return { ...prev, [detId]: old + 1 }
     })
-    setImgVersion(v => v + 1)
   }, [])
 
   // ── Undo ──
@@ -197,7 +262,7 @@ export default function Labeling() {
       const newStack = [...stack]
       const { detId, oldVal } = newStack.pop()
       setCounts(prev => ({ ...prev, [detId]: oldVal }))
-      setImgVersion(v => v + 1)
+      setDirty(true)
       return newStack
     })
   }, [])
@@ -209,9 +274,9 @@ export default function Labeling() {
       setUndoStack(entries.map(([k, v]) => ({ detId: parseInt(k), oldVal: v })))
       const cleared = {}
       for (const [k] of entries) cleared[k] = 0
+      setDirty(true)
       return cleared
     })
-    setImgVersion(v => v + 1)
   }, [])
 
   // ── Keyboard shortcuts ──
@@ -226,11 +291,14 @@ export default function Labeling() {
       } else if (e.key === 'z' || e.key === 'Z') {
         e.preventDefault()
         undo()
+      } else if (e.key === 's' || e.key === 'S') {
+        e.preventDefault()
+        explicitSave()
       }
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [navigatePair, undo])
+  }, [navigatePair, undo, explicitSave])
 
   // ── Save on unmount ──
   useEffect(() => {
@@ -349,6 +417,16 @@ export default function Labeling() {
             <div className="stat-dot purple" />
             ID par: <strong>{pairId}</strong>
           </div>
+          {/* Save status indicator */}
+          <div className="stat" style={{ fontSize: 12 }}>
+            {saving ? (
+              <span style={{ color: 'var(--accent-orange)' }}>💾 Guardando...</span>
+            ) : dirty ? (
+              <span style={{ color: 'var(--accent-orange)' }}>● Sin guardar</span>
+            ) : (
+              <span style={{ color: 'var(--accent-green)' }}>✓ Guardado</span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -369,18 +447,18 @@ export default function Labeling() {
           ◀
         </button>
 
-        {/* Images — clickable bboxes */}
+        {/* Images — clickable bboxes with CSS count badges */}
         <div style={s.imagesContainer}>
           <ClickableImagePanel
             pairId={pairId} vista="frontal" vistaCode="F" label="Frontal"
             accentColor="var(--accent-blue)" detections={detections}
-            counts={counts} imgVersion={imgVersion}
+            counts={counts}
             onClickDetection={clickItem}
           />
           <ClickableImagePanel
             pairId={pairId} vista="trasera" vistaCode="B" label="Trasera"
             accentColor="var(--accent-purple)" detections={detections}
-            counts={counts} imgVersion={imgVersion}
+            counts={counts}
             onClickDetection={clickItem}
           />
         </div>
@@ -396,7 +474,6 @@ export default function Labeling() {
         </button>
       </div>
 
-      {/* ── Detection buttons grouped by Vista → Balda ── */}
       {detections.length > 0 && (
         <div style={s.detectionsSection}>
           <p style={s.detSectionTitle}>Pulsa el item o la bbox en la imagen para sumar +1:</p>
@@ -430,6 +507,18 @@ export default function Labeling() {
           onClick={clearPair}
         >
           🗑️ Borrar este par
+        </button>
+        <button
+          className="btn"
+          style={{
+            borderColor: dirty ? 'rgba(59, 130, 246, 0.5)' : 'var(--border-primary)',
+            color: dirty ? 'var(--accent-blue)' : 'var(--text-muted)',
+            fontWeight: dirty ? 700 : 400,
+          }}
+          disabled={saving}
+          onClick={explicitSave}
+        >
+          💾 Guardar <span className="kbd">S</span>
         </button>
         <div style={s.totalBadge}>
           Total: <strong style={{ fontSize: 22, color: 'var(--text-primary)' }}>{totalUnits}</strong>
